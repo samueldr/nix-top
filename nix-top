@@ -99,10 +99,40 @@ def per_output_infos(user, pids, path)
   ]
 end
 
+# takes pid of root process run by a nixbld user (usually a default-builder.sh process)
+# returns pid of user that asked the nix-daemon to build this derivation
+def get_owner(runner_pid)
+  # First, get the PPID of the given PID
+  ppid = `ps -o ppid= -p #{runner_pid}`.strip.to_i
+
+  # Now, use the PPID to get the parent process's command
+  parent_command = `ps -o command= -p #{ppid}`.strip if ppid > 0
+
+  # The PID of the owner is the first arguemnt of the command
+  owner_pid = parent_command.split(" ")[1].to_i if parent_command
+
+  # Query owner data
+  owner_user = `ps -o user= -p #{owner_pid}`.strip if owner_pid > 0
+  owner_command = `ps -o command= -p #{owner_pid}`.strip if owner_pid > 0
+
+  [owner_pid, owner_user, owner_command]
+end
+
+def processes_extend_owners(processes)
+  processes = processes.map do |user, (path, pids)| 
+    main_pid = pids.sort do |a, b| a <=> b end.first
+    owner = get_owner(main_pid)
+    [ user, [path, pids, owner] ]
+  end
+
+  processes
+end
+
 # A "screenful" of information
 # Does not trim output to fit in one terminal screen.
 def print_screen()
   processes = get_processes()
+  processes = processes_extend_owners(processes) 
 
   lines = []
   sep = [
@@ -110,10 +140,11 @@ def print_screen()
     " * * * ",
     "",
   ]
-
-  lines << "Summary per output"
-  lines.concat(processes.map do |user, (path, pids)|
-    "    %4d → %s" % [pids.length, path]
+  
+  lines << "Summary:"
+  lines << "  %8s  %8s  %s → %s" % ["owner", "pid", "nr_processes", "derivation"]
+  lines.concat(processes.map do |user, (path, pids, (owner_pid, owner_user, owner_command))|
+    "  %8s  %8i  %4d → %s" % [owner_user, owner_pid, pids.length, path]
   end)
   lines.concat(sep)
   lines.concat(processes.map do |user, (path, pids)|
