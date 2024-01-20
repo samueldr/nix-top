@@ -103,13 +103,13 @@ end
 # returns pid of user that asked the nix-daemon to build this derivation
 def get_owner(runner_pid)
   # First, get the PPID of the given PID
-  ppid = `ps -o ppid= -p #{runner_pid}`.strip.to_i
+  ppid = `ps -o ppid= -p #{runner_pid} 2>/dev/null`.strip.to_i
   if ppid == 0
     [0, "unknown", "unknown"]
   end
 
   # Now, use the PPID to get the parent process's command
-  parent_command = `ps -o command= -p #{ppid}`.strip.split(" ")
+  parent_command = `ps -o command= -p #{ppid} 2>/dev/null`.strip.split(" ")
   if parent_command.length < 2
     [ppid, "unknown", "unknown"]
   end
@@ -121,8 +121,8 @@ def get_owner(runner_pid)
   end
 
   # Query owner data
-  owner_user = `ps -o user= -p #{owner_pid}`.strip
-  owner_command = `ps -o command= -p #{owner_pid}`.strip
+  owner_user = `ps -o user= -p #{owner_pid} 2>/dev/null`.strip
+  owner_command = `ps -o command= -p #{owner_pid} 2>/dev/null`.strip
 
   [owner_pid, owner_user, owner_command]
 end
