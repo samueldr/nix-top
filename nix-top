@@ -104,16 +104,25 @@ end
 def get_owner(runner_pid)
   # First, get the PPID of the given PID
   ppid = `ps -o ppid= -p #{runner_pid}`.strip.to_i
+  if ppid == 0
+    [0, "unknown", "unknown"]
+  end
 
   # Now, use the PPID to get the parent process's command
-  parent_command = `ps -o command= -p #{ppid}`.strip if ppid > 0
+  parent_command = `ps -o command= -p #{ppid}`.strip.split(" ")
+  if parent_command.length < 2
+    [ppid, "unknown", "unknown"]
+  end
 
   # The PID of the owner is the first arguemnt of the command
-  owner_pid = parent_command.split(" ")[1].to_i if parent_command
+  owner_pid = parent_command[1].to_i
+  if owner_pid == 0
+    [ppid, "unknown", "unknown"]
+  end
 
   # Query owner data
-  owner_user = `ps -o user= -p #{owner_pid}`.strip if owner_pid > 0
-  owner_command = `ps -o command= -p #{owner_pid}`.strip if owner_pid > 0
+  owner_user = `ps -o user= -p #{owner_pid}`.strip
+  owner_command = `ps -o command= -p #{owner_pid}`.strip
 
   [owner_pid, owner_user, owner_command]
 end
@@ -195,3 +204,5 @@ while true do
 
   display(print_screen)
 end
+
+
